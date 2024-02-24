@@ -1,87 +1,103 @@
 const asyncHandler = require("express-async-handler");
 const Contact = require("../models/contactModel");
 
-// Get all contacts API
-// Route: GET /api/contacts
-// Access: Private
+//@desc Get all contacts
+//@route GET /api/contacts
+//@access private
 const getContacts = asyncHandler(async (req, res) => {
-    const contacts = await Contact.find({ user_id: req.user.id });
-    res.status(200).json(contacts);
+  const contacts = await Contact.find({ user_id: req.user.id });
+  res.status(200).json(contacts);
 });
 
-// Create contact API
-// Route: POST /api/contacts
-// Access: Private
+//@desc Create New contact
+//@route POST /api/contacts
+//@access private
 const createContact = asyncHandler(async (req, res) => {
-    console.log("the request body is:", req.body);
-    const { name, email, phone } = req.body;
-    if (!name || !email || !phone) {
-        res.status(400).json({ error: "All fields are required" });
-        return;
-    }
+  console.log("The request body is :", req.body);
+  const { name, email, phone } = req.body;
+  if (!name || !email || !phone) {
+    return res.status(400).json({ error: "All fields are mandatory!" });
+  }
+  const contact = await Contact.create({
+    name,
+    email,
+    phone,
+    user_id: req.user.id,
+  });
 
-    const contact = await Contact.create({
-        name,
-        email,
-        phone,
-        user_id: req.user.id,
-    });
-    // Send response with status code 201 and the created contact in it
-    res.status(201).json(contact);
+  return res.status(201).json(contact);
 });
 
-
-    // res.status(201).json(contact);
-// });
-
-// Get contact by ID API
-// Route: GET /api/contacts/:id
-// Access: Private
+//@desc Get contact
+//@route GET /api/contacts/:id
+//@access private
 const getContact = asyncHandler(async (req, res) => {
-    const contact = await Contact.findById(req.params.id);
-
-    if (!contact) {
-        res.status(404);
-        throw new Error('Contact not found');
-    }
-    res.status(200).json(contact);
+  const contact = await Contact.findById(req.params.id);
+  if (!contact) {
+    return res.status(404).json({ error: "Contact not found" });
+  }
+  res.status(200).json(contact);
 });
 
-// Update contact by ID API
-// Route: PUT /api/contacts/:id
-// Access: Public
+//@desc Update contact
+//@route PUT /api/contacts/:id
+//@access private
 const updateContact = asyncHandler(async (req, res) => {
-    if (Object.keys(req.body).length === 0) {
-        res.status(400).json({ error: "No update data provided" });
-        return;
+  try {
+    const contact = await Contact.findById(req.params.id);
+    if (!contact) {
+      return res.status(404).json({ error: "Contact not found" });
     }
 
-    let contact = await Contact.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!contact) {
-        return res.status(404).json({ message: "No contact with this id was found." });
+    if (contact.user_id.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "User doesn't have permission to update other user contacts" });
     }
-    res.status(200).json({ message: `Contact updated for id ${req.params.id}` });
+
+    const updatedContact = await Contact.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+
+    if (!updatedContact) {
+      return res.status(404).json({ error: "Contact not found" });
+    }
+
+    res.status(200).json(updatedContact);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server Error" });
+  }
 });
 
-// Delete contact by ID API
-// Route: DELETE /api/contacts/:id
-// Access: Private
+//@desc Delete contact
+//@route DELETE /api/contacts/:id
+//@access private
 const deleteContact = asyncHandler(async (req, res) => {
+  try {
     const contact = await Contact.findById(req.params.id);
-
     if (!contact) {
-        res.status(404);
-        throw new Error("Contact not found");
+      return res.status(404).json({ error: "Contact not found" });
     }
-
-    await contact.deleteOne(); // Use deleteOne or deleteMany based on your requirements
-    res.status(200).json({ message: `Contact deleted with id ${req.params.id}` });
+    if (contact.user_id.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "User doesn't have permission to delete other user contacts" });
+    }
+    await Contact.deleteOne({ _id: req.params.id });
+    res.status(200).json({ message: "Contact deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server Error" });
+  }
 });
 
 module.exports = {
-    getContacts,
-    createContact,
-    getContact,
-    updateContact,
-    deleteContact
+  getContacts,
+  createContact,
+  getContact,
+  updateContact,
+  deleteContact,
 };

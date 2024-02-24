@@ -4,8 +4,8 @@ const contactSchema = mongoose.Schema({
 
     user_id:{
         type: mongoose.Schema.Types.ObjectId,
-        required: [true, "Please add the user name"],
-       // ref:"User"  referencing to User model
+        required: true, 
+        ref:"User",  //referencing to User model
 
     },
 
